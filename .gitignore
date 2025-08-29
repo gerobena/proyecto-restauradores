@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+notebooks/*_output.ipynb
+
+# Datos crudos (NO se suben)
+data/raw/**
+!data/summary.parquet
+
+# Logs/artefactos
+logs/
+
+# Archivos de sistema
+Thumbs.db
+.DS_Store

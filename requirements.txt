@@ -1,0 +1,11 @@
+pandas
+numpy
+matplotlib
+openpyxl
+pyarrow
+streamlit
+plotly
+jupyter
+papermill
+python-dateutil
+streamlit-option-menu
