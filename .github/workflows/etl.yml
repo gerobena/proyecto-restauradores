@@ -67,23 +67,36 @@ jobs:
             subprocess.check_call([sys.executable, "-m", "pip", "install", "papermill"])
           PY
 
-      # Copiar archivos desde OneDrive a data/raw con logs detallados
-      - name: Sync OneDrive -> data/raw
+        # Copiar archivos desde OneDrive a data/raw con logs detallados
+      - name: Sync OneDrive -> data/raw (acepta xls y convierte a xlsx)
         run: |
           mkdir -p data/raw
+          
+          # 1 Copiar TODO lo que cumpla la nomenclatura (sin forzar extensión)
           rclone copy onedrive:Restauradores_Ingesta_Reportes data/raw \
-            --include "ventas_*.xls" \
-            --include "ventas_*.xlsx" \
-            --include "compras_*.xls" \
-            --include "compras_*.xlsx" \
-            --include "inventario_*.xls" \
-            --include "inventario_*.xlsx" \
+            --include "ventas_*" \
+            --include "compras_*" \
+            --include "inventario_*" \
+            --include "costos_fijos_historico*" \
             --create-empty-src-dirs --checkers 4 --transfers 4 \
             --retries 5 --retries-sleep 10s --stats 5s -vv
+
           echo "== Descargado a data/raw =="
           ls -lah data/raw || true
 
-      # Ejecutar el notebook y generar data/summary.parquet
+          # 2 Convertir cualquier .xls a .xlsx (LibreOffice headless)
+          shopt -s nullglob
+          for f in data/raw/*.xls; do
+            echo "Convirtiendo $f -> xlsx"
+            soffice --headless --convert-to xlsx --outdir data/raw "$f"
+            rm -f "$f"
+          done
+
+          echo "== Contenido final (solo xlsx) =="
+          ls -lah data/raw || true
+
+
+    # Ejecutar el notebook y generar data/summary.parquet
       - name: Run notebook with Papermill (produce data/summary.parquet)
         run: |
           papermill notebooks/analisis.ipynb notebooks/analisis_output.ipynb \
