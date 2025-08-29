@@ -71,7 +71,7 @@ jobs:
       - name: Sync OneDrive -> data/raw (acepta xls y convierte a xlsx)
         run: |
           mkdir -p data/raw
-          
+
           # 1 Copiar TODO lo que cumpla la nomenclatura (sin forzar extensión)
           rclone copy onedrive:Restauradores_Ingesta_Reportes data/raw \
             --include "ventas_*" \
@@ -107,11 +107,24 @@ jobs:
       - name: Check summary exists
         run: |
           test -f data/summary.parquet && ls -lh data/summary.parquet
+      
+      # Crear un registro del proceso data_version.txt con timestamps
+      - name: Bump data_version.txt
+        run: |
+          echo "last_run=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > data/data_version.txt
+          echo "onedrive_snapshot=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> data/data_version.txt
+          cat data/data_version.txt
 
       # Commit & push del parquet si cambió
       - name: Commit & push updated summary
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "chore: actualizar summary.parquet"
-          file_pattern: data/summary.parquet
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/summary.parquet data/data_version.txt || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "data: update summary.parquet [ci]"
+            git push
+          fi
 
