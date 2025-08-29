@@ -2,9 +2,9 @@ name: Retail ETL mensual
 
 on:
   schedule:
-    # Día 2 de cada mes a las 04:00 UTC (ajústalo si quieres)
+    # Día 2 de cada mes a las 04:00 UTC (ajusta si quieres otra hora o día)
     - cron: "0 4 2 * *"
-  workflow_dispatch: {}  # permite ejecutarlo manualmente desde la pestaña Actions
+  workflow_dispatch: {}  # permite ejecutarlo manualmente desde Actions
 
 jobs:
   etl:
@@ -25,11 +25,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libreoffice rclone
 
-      - name: Restore rclone config from secret
+      - name: Restore rclone config from secret (Base64)
         run: |
           mkdir -p ~/.config/rclone
-          echo "${{ secrets.RCLONE_CONF }}" > ~/.config/rclone/rclone.conf
+          echo "$RCLONE_CONF_B64" | base64 -d > ~/.config/rclone/rclone.conf
           chmod 600 ~/.config/rclone/rclone.conf
+        env:
+          RCLONE_CONF_B64: ${{ secrets.RCLONE_CONF_B64 }}
+
+      - name: Sanity check rclone remote
+        run: |
+          rclone --version
+          echo "Listing root of onedrive to verify auth..."
+          rclone ls onedrive: --max-depth 1 | head -n 20 || true
 
       - name: Install Python deps
         run: |
