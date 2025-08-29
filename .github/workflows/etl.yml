@@ -1,0 +1,67 @@
+name: Retail ETL mensual
+
+on:
+  schedule:
+    # Día 2 de cada mes a las 04:00 UTC (ajústalo si quieres)
+    - cron: "0 4 2 * *"
+  workflow_dispatch: {}  # permite ejecutarlo manualmente desde la pestaña Actions
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system deps (LibreOffice + rclone)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libreoffice rclone
+
+      - name: Restore rclone config from secret
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "${{ secrets.RCLONE_CONF }}" > ~/.config/rclone/rclone.conf
+          chmod 600 ~/.config/rclone/rclone.conf
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Sync OneDrive -> data/raw
+        run: |
+          mkdir -p data/raw
+          rclone copy onedrive:Restauradores_Ingesta_Reportes data/raw \
+            --include "ventas_*.xls" \
+            --include "ventas_*.xlsx" \
+            --include "compras_*.xls" \
+            --include "compras_*.xlsx" \
+            --include "inventario_*.xls" \
+            --include "inventario_*.xlsx" \
+            --create-empty-src-dirs --stats 5s
+          echo "Contenido descargado en data/raw:"
+          ls -lah data/raw
+
+      - name: Run notebook with Papermill (produce data/summary.parquet)
+        run: |
+          papermill notebooks/analisis.ipynb notebooks/analisis_output.ipynb \
+            -p RAW_DIR data/raw \
+            -p OUTPUT_PARQUET data/summary.parquet
+
+      - name: Check summary exists
+        run: |
+          test -f data/summary.parquet && ls -lh data/summary.parquet
+
+      - name: Commit & push updated summary
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: actualizar summary.parquet"
+          file_pattern: data/summary.parquet
