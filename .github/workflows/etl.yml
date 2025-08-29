@@ -20,12 +20,16 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install system deps (LibreOffice + rclone)
+      # Instalamos LibreOffice + rclone oficial (última versión)
+      - name: Install system deps (LibreOffice) and latest rclone
         run: |
           sudo apt-get update
-          sudo apt-get install -y libreoffice rclone
+          sudo apt-get install -y libreoffice curl unzip
+          # Instalar rclone estable más reciente (script oficial)
+          curl -fsSL https://rclone.org/install.sh | sudo bash
+          rclone --version
 
-      # --- RCLONE CONF desde secret Base64 ---
+      # Restaurar rclone.conf desde secret Base64 y exportar RCLONE_CONFIG
       - name: Restore rclone config from secret (Base64)
         env:
           RCLONE_CONF_B64: ${{ secrets.RCLONE_CONF_B64 }}
@@ -37,7 +41,7 @@ jobs:
           # Exportar para pasos siguientes
           echo "RCLONE_CONFIG=$HOME/.config/rclone/rclone.conf" >> $GITHUB_ENV
 
-      # --- Diagnóstico de rclone / remoto onedrive ---
+      # Comprobaciones de rclone / remoto onedrive
       - name: Sanity check rclone remote
         run: |
           rclone --version
@@ -55,9 +59,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           # Asegura papermill por si no estuviera en requirements.txt
-          python -c "import papermill" 2>/dev/null || pip install papermill
+          python - << 'PY'
+          import importlib, sys, subprocess
+          try:
+            importlib.import_module("papermill")
+          except ImportError:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "papermill"])
+          PY
 
-      # --- Copia con logs verbosos y reintentos amables ---
+      # Copiar archivos desde OneDrive a data/raw con logs detallados
       - name: Sync OneDrive -> data/raw
         run: |
           mkdir -p data/raw
@@ -73,18 +83,22 @@ jobs:
           echo "== Descargado a data/raw =="
           ls -lah data/raw || true
 
+      # Ejecutar el notebook y generar data/summary.parquet
       - name: Run notebook with Papermill (produce data/summary.parquet)
         run: |
           papermill notebooks/analisis.ipynb notebooks/analisis_output.ipynb \
             -p RAW_DIR data/raw \
             -p OUTPUT_PARQUET data/summary.parquet
 
+      # Verificar que el parquet exista
       - name: Check summary exists
         run: |
           test -f data/summary.parquet && ls -lh data/summary.parquet
 
+      # Commit & push del parquet si cambió
       - name: Commit & push updated summary
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "chore: actualizar summary.parquet"
           file_pattern: data/summary.parquet
+
