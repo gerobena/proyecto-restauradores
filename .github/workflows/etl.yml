@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false  # usaremos nuestro token en el push
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -116,15 +118,22 @@ jobs:
           cat data/data_version.txt
 
       # Commit & push del parquet si cambió
-      - name: Commit & push updated summary
+      - name: Commit & push updated summary (and version)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add data/summary.parquet data/data_version.txt || true
+
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
             git commit -m "data: update summary.parquet [ci]"
-            git push
+            # Push autenticado con el GITHUB_TOKEN
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:${BRANCH}
           fi
 
