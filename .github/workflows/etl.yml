@@ -116,18 +116,18 @@ jobs:
           echo "📦 Verificando summary.parquet ..."
           ls -lh data/summary.parquet || true
           python - << 'PY'
-import hashlib, os
-path = "data/summary.parquet"
-if os.path.exists(path):
-    size = os.path.getsize(path) / 1e6
-    with open(path,'rb') as f:
-        h = hashlib.sha256(f.read()).hexdigest()
-    print(f"✅ Parquet encontrado: {path}")
-    print(f"   size={size:.2f} MB")
-    print(f"   sha256={h}")
-else:
-    print("⚠️ No se encontró summary.parquet")
-PY
+          import hashlib, os
+          path = "data/summary.parquet"
+          if os.path.exists(path):
+              size = os.path.getsize(path) / 1e6
+              with open(path,'rb') as f:
+                  h = hashlib.sha256(f.read()).hexdigest()
+              print(f"✅ Parquet encontrado: {path}")
+              print(f"   size={size:.2f} MB")
+              print(f"   sha256={h}")
+          else:
+              print("⚠️ No se encontró summary.parquet")
+          PY
       # <<< FIN NUEVO >>>
 
       # Crear un registro del proceso data_version.txt con timestamps
