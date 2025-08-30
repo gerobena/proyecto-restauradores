@@ -429,3 +429,40 @@ top_slow_display["UTILIDAD NETA PROMEDIO"] = top_slow_display["UTILIDAD NETA PRO
 
 st.subheader("TOP 5 DE ITEMS CON MOVIMIENTO LENTO")
 st.table(top_slow_display)
+
+# === FOOTER PERSONALIZADO ===
+from datetime import datetime
+
+VERSION_PATH = ROOT_DIR / "data" / "data_version.txt"
+
+def _leer_last_run_ddmmyyyy(path: Path) -> str:
+    """Lee last_run=YYYY-MM-DD... y devuelve DD/MM/YYYY. Si falla, 'N/D'."""
+    try:
+        if not path.exists():
+            return "N/D"
+        lines = path.read_text(encoding="utf-8").splitlines()
+        kv = dict(line.split("=", 1) for line in lines if "=" in line)
+        iso = kv.get("last_run")  # p.ej. '2025-08-30T09:15:00Z'
+        if not iso:
+            return "N/D"
+        # Tomamos solo la parte de fecha YYYY-MM-DD
+        date_str = iso.split("T", 1)[0]
+        dt = datetime.strptime(date_str, "%Y-%m-%d")
+        return dt.strftime("%d/%m/%Y")
+    except Exception:
+        return "N/D"
+
+ultima_act = _leer_last_run_ddmmyyyy(VERSION_PATH)
+anio_actual = datetime.utcnow().year
+
+st.markdown(
+    f"""
+    <hr style="margin-top: 40px; margin-bottom: 10px;">
+    <div style="text-align:center; font-size:14px; color:#6b7280;">
+        © {anio_actual} Importamaq S.A. | Última actualización: {ultima_act}<br>
+        Elaborado por: <strong>Geovanny Benavides S.</strong>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+# ===========END FOOTER=================
