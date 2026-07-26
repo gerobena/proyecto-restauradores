@@ -103,30 +103,32 @@ jobs:
         run: |
           papermill notebooks/analisis.ipynb notebooks/analisis_output.ipynb \
             -p RAW_DIR data/raw \
-            -p OUTPUT_PARQUET data/summary.parquet
+            -p OUTPUT_PARQUET data/summary.parquet \
+            -p OUTPUT_HIST_PARQUET data/historico_mensual.parquet
 
-      # Verificar que el parquet exista
+      # Verificar que los parquets existan
       - name: Check summary exists
         run: |
           test -f data/summary.parquet && ls -lh data/summary.parquet
+          test -f data/historico_mensual.parquet && ls -lh data/historico_mensual.parquet
       
       # <<< NUEVO: mostrar tamaño y hash del parquet >>>
       - name: Show parquet info (hash & size)
         run: |
-          echo "📦 Verificando summary.parquet ..."
-          ls -lh data/summary.parquet || true
+          echo "📦 Verificando parquets ..."
+          ls -lh data/*.parquet || true
           python - << 'PY'
           import hashlib, os
-          path = "data/summary.parquet"
-          if os.path.exists(path):
-              size = os.path.getsize(path) / 1e6
-              with open(path,'rb') as f:
-                  h = hashlib.sha256(f.read()).hexdigest()
-              print(f"✅ Parquet encontrado: {path}")
-              print(f"   size={size:.2f} MB")
-              print(f"   sha256={h}")
-          else:
-              print("⚠️ No se encontró summary.parquet")
+          for path in ("data/summary.parquet", "data/historico_mensual.parquet"):
+              if os.path.exists(path):
+                  size = os.path.getsize(path) / 1e6
+                  with open(path,'rb') as f:
+                      h = hashlib.sha256(f.read()).hexdigest()
+                  print(f"✅ Parquet encontrado: {path}")
+                  print(f"   size={size:.2f} MB")
+                  print(f"   sha256={h}")
+              else:
+                  print(f"⚠️ No se encontró {path}")
           PY
       # <<< FIN NUEVO >>>
 
@@ -147,12 +149,12 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add data/summary.parquet data/data_version.txt || true
+          git add data/summary.parquet data/historico_mensual.parquet data/data_version.txt || true
 
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "data: update summary.parquet [ci]"
+            git commit -m "data: update summary.parquet + historico_mensual.parquet [ci]"
             # Push autenticado con el GITHUB_TOKEN
             git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:${BRANCH}
           fi
