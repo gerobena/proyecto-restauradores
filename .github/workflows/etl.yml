@@ -6,6 +6,10 @@ on:
     - cron: "0 4 2 * *"
   workflow_dispatch: {}  # permite ejecutarlo manualmente desde Actions
 
+permissions:
+  contents: write   # para commitear los parquets
+  issues: write     # para abrir el issue si la corrida falla
+
 jobs:
   etl:
     runs-on: ubuntu-latest
@@ -132,10 +136,12 @@ jobs:
           PY
       # <<< FIN NUEVO >>>
 
-      # Crear un registro del proceso data_version.txt con timestamps
+      # El notebook ya escribio data_cut (fecha real de los datos). Aqui se
+      # agrega cuando corrio el pipeline, que es una cosa distinta: el ETL puede
+      # correr hoy sobre reportes de hace meses.
       - name: Bump data_version.txt
         run: |
-          echo "last_run=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" > data/data_version.txt
+          echo "last_run=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> data/data_version.txt
           echo "onedrive_snapshot=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> data/data_version.txt
           cat data/data_version.txt
 
@@ -149,13 +155,33 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add data/summary.parquet data/historico_mensual.parquet data/data_version.txt || true
+          # Solo los parquets deciden si hay algo que guardar. data_version.txt
+          # cambia en cada corrida por el timestamp, asi que si se incluyera en
+          # la comparacion nunca habria un "sin cambios" y el repo acumularia
+          # commits vacios mes a mes.
+          git add data/summary.parquet data/historico_mensual.parquet
 
           if git diff --cached --quiet; then
-            echo "No changes to commit."
+            echo "Los datos no cambiaron: no se commitea nada."
           else
+            git add data/data_version.txt
             git commit -m "data: update summary.parquet + historico_mensual.parquet [ci]"
             # Push autenticado con el GITHUB_TOKEN
             git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" HEAD:${BRANCH}
           fi
+
+      # Si algo fallo, queda un issue abierto en vez de un fallo silencioso que
+      # solo se nota porque el panel se queda con la fecha vieja.
+      - name: Abrir issue si el ETL fallo
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${REPO}/issues" \
+            -d "$(printf '{"title":"ETL mensual fallo el %s","body":"La corrida automatica no termino.\\n\\nRevisar el log: %s\\n\\nCausas frecuentes:\\n- Nombre de archivo fuera de formato en la carpeta de OneDrive (el mes va con dos digitos)\\n- Falta el reporte de compras del mismo mes que ventas\\n- Falta costos_fijos_historico.xlsx\\n- Token de rclone vencido","labels":["etl"]}' "$(date -u +%Y-%m-%d)" "$RUN_URL")"
 

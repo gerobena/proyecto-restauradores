@@ -55,6 +55,42 @@ def leer(path: Path) -> pd.DataFrame:
     return load_data(path, path.stat().st_mtime if path.exists() else 0.0)
 
 
+@st.cache_data
+def _version_datos(path: Path, mtime: float) -> dict:
+    """data_version.txt: la fecha de los datos y la de la corrida no son lo mismo."""
+    if not path.exists():
+        return {}
+    try:
+        return dict(
+            linea.split("=", 1)
+            for linea in path.read_text(encoding="utf-8").splitlines()
+            if "=" in linea
+        )
+    except Exception:
+        return {}
+
+
+def _fecha_es(valor) -> str:
+    if not valor:
+        return "N/D"
+    try:
+        return datetime.strptime(valor.split("T", 1)[0], "%Y-%m-%d").strftime("%d/%m/%Y")
+    except ValueError:
+        return "N/D"
+
+
+version = _version_datos(
+    VERSION_PATH, VERSION_PATH.stat().st_mtime if VERSION_PATH.exists() else 0.0
+)
+fecha_datos = _fecha_es(version.get("data_cut"))
+fecha_corrida = _fecha_es(version.get("last_run"))
+
+try:
+    meses_desfase = int(version.get("meses_desfase", "0"))
+except (TypeError, ValueError):
+    meses_desfase = 0
+
+
 df_full = leer(DATA_PATH)
 
 if df_full.empty:
@@ -174,6 +210,15 @@ with st.sidebar:
     )
 
 st.title("PANEL DE CONTROL - SERVICENTRO RESTAURADORES")
+
+if meses_desfase > 2:
+    st.warning(
+        f"**Los datos tienen {meses_desfase} meses de antigüedad** — el último movimiento "
+        f"registrado es del {fecha_datos}. Todo lo que ves abajo es la foto de esa fecha, "
+        "no la de hoy. Para actualizarlo hay que subir los reportes nuevos a la carpeta de "
+        "ingesta en OneDrive y volver a ejecutar el pipeline.",
+        icon="⚠️",
+    )
 
 # --------------------------------------------------------------------------- #
 # Filtros
@@ -730,28 +775,19 @@ with st.expander("⚠️ Calidad de los datos en esta selección"):
     )
 
 
-def _ultima_actualizacion(path: Path) -> str:
-    try:
-        if not path.exists():
-            return "N/D"
-        kv = dict(
-            linea.split("=", 1)
-            for linea in path.read_text(encoding="utf-8").splitlines()
-            if "=" in linea
-        )
-        iso = kv.get("last_run")
-        if not iso:
-            return "N/D"
-        return datetime.strptime(iso.split("T", 1)[0], "%Y-%m-%d").strftime("%d/%m/%Y")
-    except Exception:
-        return "N/D"
-
+# El pipeline agrega su propia fecha al correr; si todavía no lo hizo, se omite
+# en vez de mostrar un "N/D" que parece un error.
+_pie = [f"© {datetime.now().year} Importamaq S.A."]
+if fecha_datos != "N/D":
+    _pie.append(f"Datos al <strong>{fecha_datos}</strong>")
+if fecha_corrida != "N/D":
+    _pie.append(f"Pipeline ejecutado el {fecha_corrida}")
 
 st.markdown(
     f"""
     <hr style="margin-top: 40px; margin-bottom: 10px;">
     <div style="text-align:center; font-size:14px; color:#6b7280;">
-        © {datetime.now().year} Importamaq S.A. | Última actualización: {_ultima_actualizacion(VERSION_PATH)}<br>
+        {" | ".join(_pie)}<br>
         Elaborado por: <strong>Geovanny Benavides S.</strong>
     </div>
     """,
