@@ -16,13 +16,16 @@ jobs:
     timeout-minutes: 45
 
     steps:
+      # v4/v5 declaraban Node 20, que ya esta descontinuado en los runners:
+      # GitHub las forzaba a correr sobre Node 24 y avisaba en cada ejecucion.
+      # Estas versiones declaran Node 24 de forma nativa.
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false  # usaremos nuestro token en el push
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 

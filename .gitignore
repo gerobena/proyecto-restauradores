@@ -11,6 +11,9 @@ notebooks/*_output.ipynb
 data/raw/**
 !data/summary.parquet
 
+# Exportaciones intermedias del notebook (se regeneran, no son fuente)
+Data_limpia/
+
 # Logs/artefactos
 logs/
 
