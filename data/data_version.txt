@@ -2,3 +2,5 @@ data_cut=2025-10-31
 meses_desfase=9
 archivo_ventas=ventas_11_2025.xlsx
 archivo_inventario=inventario_20251107.xlsx
+last_run=2026-07-27T20:51:21Z
+onedrive_snapshot=2026-07-27T20:51:21Z
