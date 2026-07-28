@@ -10,6 +10,7 @@ Streamlit Cloud.
 
 - 📖 **[Definición de cada métrica](docs/METRICAS.md)** — qué mide, cómo se calcula y qué supone
 - 📝 **[Historial de cambios](docs/CAMBIOS.md)** — qué cambió respecto a la versión anterior y por qué
+- 🎯 **[Oportunidades](docs/OPORTUNIDADES.md)** — backlog de mejoras evaluado contra los datos reales (nada implementado)
 
 ---
 
@@ -112,7 +113,7 @@ app/app.py                    dashboard
 notebooks/analisis.ipynb      ETL completo
 .github/workflows/etl.yml     automatización mensual
 data/                         parquets publicados (raw está ignorado)
-docs/                         métricas y changelog
+docs/                         métricas, changelog y backlog
 ```
 
 ---
